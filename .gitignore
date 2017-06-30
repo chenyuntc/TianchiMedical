@@ -1,0 +1,7 @@
+*.pyc
+checkpoint/
+del/
+*_del
+.*
+*.csv
+*.pth
