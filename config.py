@@ -5,15 +5,17 @@ class Config:
     data_root = '/home/x/data/dcsb/Tianchi' # 数据保存路径
     candidate_center="/home/x/dcsb/Tianchi_pytorch/csv/center.csv"#分割网络产生的疑似结点中心位置保存路径
     annotatiion_csv = "/home/x/dcsb/Tianchi_pytorch/csv/annotations.csv"
+    
     data_train='/home/x/data/datasets/tianchi/train/'#全部原始训练样本
     nodule_cubic='/mnt/7/train_nodule_cubic/'#从训练样本上切下的结点立方体保存路径
     candidate_cubic='/mnt/7/train_nodule_candidate/'#从训练样本上切下的候选结点立方体保存路径
     save_file = time.strftime(tfmt+'.csv') # 保存文件尽量加上时间信息
-    shuffle = False # 是否需要打乱数据
+    shuffle = True # 是否需要打乱数据
     num_workers = 4 # 多线程加载所需要的线程数目
     pin_memory =  True #数据从CPU->pin_memory—>GPU加速
     batch_size = 4
-
+    ratio=5
+    
     cls = False # False 代表进行分割，反之进行分类
     
     env = time.strftime(tfmt) # Visdom env

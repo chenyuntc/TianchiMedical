@@ -8,7 +8,9 @@ import torch
 import csv
 import sys
 sys.path.append("../")
+# !TODO del this 或迁移至 data/util.py
 from common_del.cysb import get_filename,voxel_2_world
+########## end ################
 from glob import glob
 import os
 import fire
@@ -19,11 +21,11 @@ except:
     print('tqdm 是一个轻量级的进度条小包。。。')
 
 class Config:
-    model_dir="checkpoints/luna2016_0629_22:17:55.pth"#模型保存路径
-    img_dir='/mnt/7/0629_train_no_normalization/'#数据父路径
-    topN=10#每个病人选取多少个结点
+    model_dir="checkpoints/luna2016_0630_21:40:07.pth"#模型保存路径
+    img_dir='/mnt/7/0630_train_no_normalization/'#数据父路径
+    topN=100#每个病人选取多少个结点
     batch_size=8
-    csv_file="/home/x/dcsb3/data/TianChi/csv/val/submission_v1.csv"#分类结果csv保存路径
+    csv_file="train_no.csv"#分类结果csv保存路径
     prob_threshould=0.0#概率阈值，只保存大于此概率的结点
     limit = 1000 # 最多测试多少个文件
 
@@ -51,13 +53,7 @@ def write_csv(world,probability,csv_writer,patient_id,threshold=0.):
     for j in range(world.shape[0]):
         if probability[j]>threshold:
             row=list(world[j]+np.random.uniform(-0.4,0.4,[3]))
-            if j==0:
-                p=probability[j]
-                p=0.9+p*0.1
-                row.append(p)
-            else:
-                p=probability[j]
-                row.append(p)
+            row.append(probability[j])
             row=[patient_id]+row
             print row
             csv_writer.writerow(row)

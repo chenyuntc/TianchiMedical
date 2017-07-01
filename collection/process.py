@@ -1,8 +1,10 @@
 #coding:utf8
 import pandas as pd
 import random
-
-def csv(file_name,out_file=None):
+import numpy as np
+import csv
+from tqdm import tqdm
+def pcsv(file_name,out_file=None):
     '''
     处理csv文件：
     - 把每个文件的最大的概率加大
@@ -31,14 +33,54 @@ def csv(file_name,out_file=None):
     
     f.to_csv(out_file,index=False)
 
-def check_nodule(file_name):
+def check_nodule(file_name,out_file):
     '''
     1. 判断文件中的节点是不是正样本还是负样本
     2. 如果是正样本，写上半径，否则写上-1
     !TODO: 如果是半径是否要写上seg找出来的半径, modify Seg.py
     '''
+    #import ipdb;ipdb.set_trace()
+    from common_del.cysb import select
+    f = pd.read_csv(file_name)
+    out_file=open(out_file,"wa")
+    csv_writer = csv.writer(out_file, dialect="excel")
+    csv_writer.writerow(
+        ['seriesuid', 'coordX', 'coordY', 'coordZ', 'probability','isnodule','diameter_mm'])
+    ids = set(f.seriesuid.tolist())
+    print "file_nums: ",len(ids)
+    for seriesuid in tqdm(ids):
+        real_center=select(seriesuid,"train")
+        center_now_world=f[f.seriesuid==seriesuid]
+        for i,nodule in center_now_world.iterrows():
+            center_now=np.array([nodule['coordX'],nodule['coordY'],nodule['coordZ']])
+            probability=nodule['probability']
+            row=[seriesuid]+list(center_now)+[nodule['probability']]
+            flag=0
+            for j_,nodule_ in real_center.iterrows():
+                real=np.array([nodule_['coordX'],nodule_['coordY'],nodule_['coordZ']])
+                radius=nodule_['diameter_mm']/2
+                diff=np.abs(real-center_now)
+                distance=np.sqrt((diff**2).sum())
+                if distance<radius: 
+                    flag=1
+                    row=row+[1,nodule_['diameter_mm']]
+                    continue
+       
+            if flag==0:
+                if len(row)>5:import ipdb;ipdb.set_trace()
+                row=row+[0,-1.]
+            if len(row)>7:row=row[:-2]#import ipdb;ipdb.set_trace()
+            csv_writer.writerow(row)
+
+                
+                    
+                
+        
+    
+        
 
 
 if __name__=='__main__':
+    #check_nodule("/home/x/dcsb/refactor/train_no.csv")
     import fire
     fire.Fire()

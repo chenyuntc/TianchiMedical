@@ -12,7 +12,8 @@ from utils.visualize import Visualizer
 import models
 vis = Visualizer(opt.env)
 from models import loss as Loss_
-        
+# t.backend.cudnn.benchmark = True
+
 def parse(kwargs):
     ## 处理配置和参数
     for k,v in kwargs.iteritems():
@@ -20,7 +21,7 @@ def parse(kwargs):
             print("Warning: opt has not attribut %s" %k)
         setattr(opt,k,v)
     for k,v in opt.__class__.__dict__.iteritems():
-        if not k.startswith('__'):print(k,v)
+        if not k.startswith('__'):print(k,getattr(opt,k))
 
     vis.reinit(opt.env)
 
@@ -103,6 +104,33 @@ def train_seg(**kwargs):
             break
         
 
+def val_cls(model,loss_function):
+
+    model.eval()
+    dataset = ClsDataset(val=True)
+    dataloader = t.utils.data.DataLoader(dataset,
+                        opt.batch_size,
+                        num_workers=opt.num_workers,
+                        shuffle=False,pin_memory=opt.pin_memory)
+    
+    confusem  = tnt.meter.ConfusionMeter(2)
+    loss_meter = tnt.meter.AverageValueMeter()
+
+    for ii, (input, label) in enumerate(dataloader):
+
+        input = t.autograd.Variable(input,volatile=True).cuda()
+        target = label.cuda()
+        output = model(input)
+        loss = loss_function(output, target)
+        confusem.add(output.data, target)
+        loss_meter.add(loss.data[0])
+
+    
+    model.train()
+    return confusem,loss_meter
+
+
+
 def train_cls(**kwargs):
     '''
     训练分类网络
@@ -165,20 +193,38 @@ def train_cls(**kwargs):
                     import ipdb
                     ipdb.set_trace()
 
-                print "epoch:%4d,time:%.8f,loss:%.8f" %(epoch,time.time()-start, loss_meter.value()[0])
+                # print "epoch:%4d,time:%.8f,loss:%.8f" %(epoch,time.time()-start, loss_meter.value()[0])
                     
     
         model.save()
-        vis.log({' epoch:':epoch,' loss:':str(loss_meter.value()[0]),' lr: ':lr})
+        
         # info = time.strftime('[%m%d %H:%M] epoch') + str(epoch) + ':' + \
         #     str(loss_meter.value()[0]) + str('; lr:') + str(lr) + '<br>'
         # vis.vis.texts += info
         # vis.vis.text(vis.vis.texts, win=u'log')
+        val_cm,val_loss = val_cls(model,loss_function)
+        # vis.log(   {'epoch:':epoch,\
+        #             'loss:':str(loss_meter.value()[0]),\
+        #             'lr:':lr,\
+        #             'cm:':str(confusem.value()),\
+        #             'val_loss':str(val_loss.value()[0]),\
+        #             'val_cm':str(val_cm.value())
+        #             })
+        vis.log('epoch:{epoch},loss:{loss:.4f},lr:{lr:.6f},cm:{cm},val_loss:{val_loss:.4f},val_cm:{val_cm}'.format(
+            epoch = epoch,
+            loss =(loss_meter.value()[0]),
+            lr = lr,
+            cm = str(confusem.value()),
+            val_loss = (val_loss.value()[0]),
+            val_cm = str(val_cm.value())
 
-        if loss_meter.value()[0] > pre_loss:
+
+        ))
+
+        if val_loss.value()[0] > pre_loss*1.:
             lr = lr * opt.lr_decay
             optimizer = get_optimizer(model, lr)
-        pre_loss = loss_meter.value()[0]
+        pre_loss = val_loss.value()[0]
         if lr < opt.min_lr:
             break
 

@@ -17,7 +17,25 @@ def get_topn(arr,n):
     for i in range(n):
         kk=np.where(arr==tmp[-1-i])[0]
         index.append(kk[0])
-    return index    
+    return index
+def voxel_2_world(arr,file_name):
+    '''
+    @arr:numpy（N，3）待进行坐标转换的数组，每一行分别为X,Y,Z的体素坐标
+    @file_name：string，对应的文件名
+    Return：numpy（N，3），体素坐标对应的世界坐标
+    '''
+    df_node=pd.read_csv("/home/x/dcsb3/data/TianChi/csv/information.csv")
+    df_min=df_node[df_node['seriesuid']==file_name]
+    index= df_min.index[0]
+    if type(arr)==list:
+        arr=np.array(arr)
+    origin=[df_min.at[index,'originX'],df_min.at[index,'originY'],df_min.at[index,'originZ']]
+    spacing=[df_min.at[index,'spacingX'],df_min.at[index,'spacingY'],df_min.at[index,'spacingZ']]
+    return arr*spacing+origin
+
+def select(file,use):
+    df=pd.read_csv("/home/x/dcsb3/data/TianChi/csv/"+use+"/annotations.csv")
+    return df[df['seriesuid']==file]
 def rotate(imgs,type):
     '''
     @imgs:带翻转的图像

@@ -144,22 +144,34 @@ class SegDataset(data.Dataset):
     
 class ClsDataset(data.Dataset):
     '''分类网络的输入'''
-    def __init__(self,augument=True):
+    def __init__(self,augument=True,val=False):
         self.augument=augument
-        self.pos_cubic=glob(opt.nodule_cubic+"*.npy")
-        self.neg_cubic=glob(opt.candidate_cubic+"*.npy")
-        self.pos_index=range(len(self.pos_cubic))
-        self.count=0
-        self._len=10*len(self.pos_cubic)
+        self.ratio=opt.ratio + 1
+        pos_cubic=glob(opt.nodule_cubic+"*.npy")
+        neg_cubic=glob(opt.candidate_cubic+"*.npy")
+        self.val = val        
+        if self.val:
+            self.pos_cubic = [file for file in pos_cubic if int(file.split('-')[1].split('_')[0])>800]
+            self.neg_cubic = [file for file in neg_cubic if int(file.split('-')[1].split('_')[0])>800]
+        else :
+            self.pos_cubic = [file for file in pos_cubic if int(file.split('-')[1].split('_')[0])<=800]
+            self.neg_cubic = [file for file in neg_cubic if int(file.split('-')[1].split('_')[0])<=800]
+        
+
+
+
+        if self.val: self.ratio = 20 # 如果是验证测试，可以多取一些负样本
+        _a = 1 if self.val else 10
+
+        # self.pos_index=range(len(self.pos_cubic))
+        self.pos_len = len(self.pos_cubic)        
+        self._len=self.ratio*self.pos_len*_a # 希望一个epoch多跑几个
+
     def __getitem__(self,index):
-        if self.count==1244:
-            self.count=0
-        if self.count==0:
-            random.shuffle(self.pos_index)
-        types=np.random.random_sample()
-        if types>0.9:
-            img=np.load(self.pos_cubic[self.pos_index[self.count]]).astype(np.float32)
-            self.count +=1
+        
+    
+        if index%self.ratio==0:
+            img=np.load(self.pos_cubic[index/self.ratio%self.pos_len]).astype(np.float32)
             label=1
         else:
             neg_file=self.neg_cubic[np.random.randint(0,len(self.neg_cubic))]
@@ -175,9 +187,15 @@ class ClsDataset(data.Dataset):
         img=zero_normalize(img)
         try:
             img_tensor = torch.from_numpy(img.copy()).view(1,20,36,36)
-        except:
-            self.__getitem__(index+1)
+            # 增加噪声 
+            if self.val: noise = 0
+            else:  noise = torch.randn(img_tensor.size())*0.2
+            img_tensor = img_tensor + noise
+        except Exception as e:
+            print '!!!!!!!!!!!!!!exception!!!!!!!!!!!!!!!%s' %(str(e))
+            return self.__getitem__(index+1)
         return img_tensor, label
+ 
     def __len__(self):
         return self._len 
 
@@ -185,9 +203,15 @@ class ClsDataset(data.Dataset):
 def main():
     dataset=ClsDataset()
     jl=0
-    for ii in range(200):
-        if dataset[ii][1]==0:
+    dataloader = t.utils.data.DataLoader(dataset,1,       
+                num_workers=4,
+                shuffle=True,
+                pin_memory=True)
+    
+    for ii, (input, label) in enumerate(dataloader):
+        if label[0]==0:
             jl+=1
+            
     print jl
 if __name__=="__main__":
     main()

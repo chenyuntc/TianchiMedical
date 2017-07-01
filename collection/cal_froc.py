@@ -36,7 +36,8 @@ def main(path,total_num = 1244,file_num=721):
     with open(path) as f:
         lines = f.readlines()[1:]
     lines = [line.strip().split(',') for line in lines]
-    results = [[s,x,y,z,float(p),int(float(i))] for [s,x,y,z,p,i,_]  in lines ]
+    # results = [[s,x,y,z,float(p),int(float(i))] for [s,x,y,z,p,i,_]  in lines ]
+    results = [[line[0],float(line[4]),int(float(line[5]))] for line  in lines ]
     results = sorted(results,key=lambda x:x[-2],reverse=True)
     froc = calculage_froc(results,total_num,file_num)
     print(froc)
