@@ -26,6 +26,8 @@ def calculage_froc(results,total_right_num,file_num):
         wrong_num_limit = int(file_num*point) 
         index = wrong.index(wrong_num_limit)
         scores.append( float(right[index])/total_right_num)
+        print right[index]
+    print scores
     
     return sum(scores)/len(scores)
 
@@ -41,6 +43,7 @@ def main(path,total_num = 1244,file_num=721):
     results = sorted(results,key=lambda x:x[-2],reverse=True)
     froc = calculage_froc(results,total_num,file_num)
     print(froc)
+    return froc
 
 if __name__=='__main__':
     import fire

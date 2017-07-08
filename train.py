@@ -6,7 +6,9 @@ import fire,time
 import torchnet as tnt
 import os
 import torch as t
-from data.dataset import ClsDataset, SegDataset
+from data.dataset import ClsDataset3 as ClsDataset
+#from data.dataset import ClsDataset as ClsDataset, SegDataLoader
+# from utils.util import get_yellow as  get_optimizer
 from utils.util import get_optimizer
 from utils.visualize import Visualizer
 import models
@@ -25,6 +27,15 @@ def parse(kwargs):
 
     vis.reinit(opt.env)
 
+
+# def get_pro(data):
+#     p = 0 
+#     for data_ in data:
+#         p+= t.nn.functional.softmax(data_)
+#     return p
+
+def get_pro(data):return data
+
 def train_seg(**kwargs):
     '''
     训练分割网络
@@ -35,7 +46,7 @@ def train_seg(**kwargs):
     model = getattr(models,opt.seg_model)().cuda() 
     if opt.seg_model_path is not None:
         model.load(opt.seg_model_path)
-    dataset = SegDataset()
+    dataset = SegDataLoader()
     dataloader = t.utils.data.DataLoader(dataset,opt.batch_size,       
                         num_workers=opt.num_workers,
                         shuffle=opt.shuffle,
@@ -122,7 +133,7 @@ def val_cls(model,loss_function):
         target = label.cuda()
         output = model(input)
         loss = loss_function(output, target)
-        confusem.add(output.data, target)
+        confusem.add(get_pro(output).data, target)
         loss_meter.add(loss.data[0])
 
     
@@ -150,7 +161,7 @@ def train_cls(**kwargs):
 
     pre_loss= 100
     lr = opt.lr
-    optimizer = get_optimizer(model,opt.lr)
+    optimizer = get_optimizer(model,opt.lr,weight_decay=1e-3)
     loss_meter = tnt.meter.AverageValueMeter()
 
     confusem = tnt.meter.ConfusionMeter(2)
@@ -176,7 +187,7 @@ def train_cls(**kwargs):
             # loss = loss1+loss2+loss3
             # prob1,prob2,prob3=t.nn.functional.softmax(score1),t.nn.functional.softmax(score2),t.nn.functional.softmax(score3)
             # prob=(prob1+prob2+prob3)/3.0
-            confusem.add(output.data, target)
+            confusem.add(get_pro(output).data, target)
             loss_meter.add(loss.data[0])
 
 
@@ -185,6 +196,7 @@ def train_cls(**kwargs):
 
                 vis_plots = {'loss':loss_meter.value()[0],'ii':ii}
                 vis.plot_many(vis_plots)
+                vis.img_grid(label[0],input.data[0])
 
                 
                 vis.vis.text('cm:%s, loss:%s' % (
@@ -193,23 +205,11 @@ def train_cls(**kwargs):
                     import ipdb
                     ipdb.set_trace()
 
-                # print "epoch:%4d,time:%.8f,loss:%.8f" %(epoch,time.time()-start, loss_meter.value()[0])
+                print "epoch:%4d/%4d, time:%.8f,loss:%.8f" %(epoch,ii,time.time()-start, loss_meter.value()[0])
                     
     
         model.save()
-        
-        # info = time.strftime('[%m%d %H:%M] epoch') + str(epoch) + ':' + \
-        #     str(loss_meter.value()[0]) + str('; lr:') + str(lr) + '<br>'
-        # vis.vis.texts += info
-        # vis.vis.text(vis.vis.texts, win=u'log')
         val_cm,val_loss = val_cls(model,loss_function)
-        # vis.log(   {'epoch:':epoch,\
-        #             'loss:':str(loss_meter.value()[0]),\
-        #             'lr:':lr,\
-        #             'cm:':str(confusem.value()),\
-        #             'val_loss':str(val_loss.value()[0]),\
-        #             'val_cm':str(val_cm.value())
-        #             })
         vis.log('epoch:{epoch},loss:{loss:.4f},lr:{lr:.6f},cm:{cm},val_loss:{val_loss:.4f},val_cm:{val_cm}'.format(
             epoch = epoch,
             loss =(loss_meter.value()[0]),
@@ -220,11 +220,15 @@ def train_cls(**kwargs):
 
 
         ))
+        vis.plot('val_loss', (val_loss.value()[0]))
 
-        if val_loss.value()[0] > pre_loss*1.:
+        if loss_meter.value()[0] > pre_loss*1.:
             lr = lr * opt.lr_decay
-            optimizer = get_optimizer(model, lr)
-        pre_loss = val_loss.value()[0]
+            # 第二种降低学习率的方法:不会有moment等的丢失
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
+            # optimizer = get_optimizer(model, lr)
+        pre_loss = loss_meter.value()[0]
         if lr < opt.min_lr:
             break
 

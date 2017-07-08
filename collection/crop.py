@@ -38,7 +38,7 @@ def crop_nodule():
 def crop_candidate():
     df_node = pd.read_csv(opt.candidate_center)
     file_list=glob(opt.data_train+"*.mhd")
-    done=glob(opt.candidate_cubic+'*.npy')
+    done=[]
     for fcount, img_file in enumerate(tqdm(file_list)):
         file_name=img_file.split('/')[-1][:-4]
         if is_exist(done,file_name):
@@ -55,8 +55,9 @@ def crop_candidate():
                 v_center = check_center(64,center,img_arr.shape)
                 v_center=v_center.astype(np.int32)
                 crop_img=img_arr[v_center[0]-32:v_center[0]+32,v_center[1]-32:v_center[1]+32,v_center[2]-32:v_center[2]+32]
-                
-                np.save(opt.candidate_cubic+file_name+"_"+str(node_idx)+"_"+str(int(is_nodule))+".npy", crop_img)
+                #np.savez('/mnt/7/0701_train_nodule_candidate/'+file_name+\
+                #         "_"+str(node_idx)+"_"+str(int(is_nodule))+".npz",data=crop_img,center=v_center)
+                np.save('/mnt/7/0705_train_48_64_candidate/'+file_name+"_"+str(node_idx)+"_"+str(int(is_nodule))+".npy", crop_img)
         
         
 crop_candidate()    

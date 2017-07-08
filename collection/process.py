@@ -14,13 +14,26 @@ def pcsv(file_name,out_file=None):
     '''
     f = pd.read_csv(file_name)
     ids = set(f.seriesuid.tolist())
-    
+    sum_=0
     for id in ids:
         # ct文件中概率最大的结节的概率再给它大点，0.6->0.96
       
         max_index = f[f.seriesuid==id].probability.argmax()
         probability = f.iloc[max_index,4]
-        f.iloc[max_index,4] = probability*0.1+0.9
+        if len(f.iloc[max_index])>5:sum_+=f.iloc[max_index,5]
+        if probability>0.2:   f.iloc[max_index,4] = probability*0.05+0.95
+        # probability = f.iloc[max_index,4]
+        
+        
+        # probability2 = f.iloc[max_index+1,4]
+        # if probability- probability2<0.1:f.iloc[max_index+1,4]=0.*probability2+0.8#f.iloc[max_index,4]*0.8
+    #     # if probability-probability2>0.4:f.iloc[max_index+1,4]=probability2**2
+        
+    #     # if probability>0.8: f.iloc[max_index+1,4] = probability*0.6+0.4
+    #     # f.iloc[max_index+1,4] = f.iloc[max_index + 2,4]*0.7 + 0.3*f.iloc[max_index+3,4]
+        
+    #     # probability = f.iloc[max_index+2,4]
+    #     # if probability>0.7: f.iloc[max_index+2,4] = probability*0.6+0.4
 
     for ii in range(len(f)):
         # shuffle 座标
@@ -28,9 +41,10 @@ def pcsv(file_name,out_file=None):
         coords = record.coordX,record.coordY,record.coordZ
         x,y,z = [_+0.4*random.random() for _  in coords]
         f.iloc[ii,1],f.iloc[ii,2],f.iloc[ii,3]=x,y,z
+
     if out_file is None:
         out_file = file_name
-    
+    print sum_
     f.to_csv(out_file,index=False)
 
 def check_nodule(file_name,out_file):
@@ -40,7 +54,7 @@ def check_nodule(file_name,out_file):
     !TODO: 如果是半径是否要写上seg找出来的半径, modify Seg.py
     '''
     #import ipdb;ipdb.set_trace()
-    from common_del.cysb import select
+    from data.util import select
     f = pd.read_csv(file_name)
     out_file=open(out_file,"wa")
     csv_writer = csv.writer(out_file, dialect="excel")
@@ -49,7 +63,8 @@ def check_nodule(file_name,out_file):
     ids = set(f.seriesuid.tolist())
     print "file_nums: ",len(ids)
     for seriesuid in tqdm(ids):
-        real_center=select(seriesuid,"train")
+        # if seriesuid=='LKDS-00826':import ipdb;ipdb.set_trace()
+        real_center=select(seriesuid)
         center_now_world=f[f.seriesuid==seriesuid]
         for i,nodule in center_now_world.iterrows():
             center_now=np.array([nodule['coordX'],nodule['coordY'],nodule['coordZ']])
@@ -64,7 +79,7 @@ def check_nodule(file_name,out_file):
                 if distance<radius: 
                     flag=1
                     row=row+[1,nodule_['diameter_mm']]
-                    continue
+                    break
        
             if flag==0:
                 if len(row)>5:import ipdb;ipdb.set_trace()

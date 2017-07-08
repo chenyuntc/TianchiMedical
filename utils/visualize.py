@@ -72,7 +72,7 @@ class Visualizer():
         会变成 6*6 的网格图，每个格子大小64*64
         '''
         self.img(name, tv.utils.make_grid(
-            input_3d.cpu()[0].unsqueeze(1)))
+            input_3d.cpu()[0].unsqueeze(1).clamp(max=1,min=0)))
 
     def log(self,info,win='log_text'):
         '''

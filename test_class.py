@@ -3,13 +3,15 @@
 import torch as t
 import time
 import numpy as np
-from models.classifier_luna2016 import Luna2016 as Classifier
+# from models import MutltiCNN as Classifier
+from models  import Luna2016 as Classifier
+#from models import L2 as Classifier
 import torch
 import csv
 import sys
 sys.path.append("../")
 # !TODO del this 或迁移至 data/util.py
-from common_del.cysb import get_filename,voxel_2_world
+from data.util import get_filename,voxel_2_world
 ########## end ################
 from glob import glob
 import os
@@ -52,10 +54,10 @@ def write_csv(world,probability,csv_writer,patient_id,threshold=0.):
     '''
     for j in range(world.shape[0]):
         if probability[j]>threshold:
-            row=list(world[j]+np.random.uniform(-0.4,0.4,[3]))
+            row=list(world[j])
             row.append(probability[j])
             row=[patient_id]+row
-            print row
+            # print row
             csv_writer.writerow(row)
     
 def do_class(imgs,model):
@@ -73,10 +75,22 @@ def do_class(imgs,model):
         img=imgs[j]
         img=torch.from_numpy(img[np.newaxis,np.newaxis,:,:,:])
         img=torch.autograd.Variable(img, volatile=True).float().cuda()
-        batch_result=model(img)
+        batch_result=get_pro(model(img))
         result[j]=torch.nn.functional.softmax(batch_result).data.cpu().numpy()[0][1]
     return result
 
+def get_pro(data):return data
+    # p = 0 
+    # for data_ in data:
+    #     p+= t.nn.functional.softmax(data_)
+    # return p/3.
+
+    #!TODO:del this
+def zero_normalize(image, mean=-600.0, var=-300.0):
+    image = (image - mean) / (var)
+    image[image > 1] = 1.
+    image[image < 0] = 0.
+    return image
 
 def doTest(**kwargs):
     parse(kwargs)
@@ -92,8 +106,9 @@ def doTest(**kwargs):
         if os.path.exists('/tmp/dcsb'):
             import ipdb
             ipdb.set_trace()
-        patient_id=patient.split('/')[-1].split('_')[0]
-        print 'doing on',patient_id
+        patient_id=patient.split('/')[-1].split('_')[-2]
+        #if int( patient_id.split('-')[1])<800:continue
+        # print 'doing on',patient_id
         patient_center=get_filename(center_list,patient_id)
         bb=zero_normalize(np.load(patient))#导入结点文件
         aa=np.load(patient_center)
@@ -102,7 +117,7 @@ def doTest(**kwargs):
         if length<opt.topN:
             topN=length
         else:
-            topN=length
+            topN=opt.topN	
         index=get_topn(result,topN)
         probability=result[index]
         center_=aa[index]

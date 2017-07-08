@@ -3,6 +3,7 @@ import numpy as np
 import SimpleITK as sitk
 from config import opt
 import pandas as pd
+
 def get_file(lists,fname):
     for f in lists:
         if fname in f:
@@ -18,13 +19,93 @@ def get_topn(arr,n):
         kk=np.where(arr==tmp[-1-i])[0]
         index.append(kk[0])
     return index
+def cropBlocks(img_new,test_crop_size):
+    '''
+    将img_new切成opt.test_crop_size大小的块
+    @img_new：待切块的图像
+    Return：
+        blocks，（num,opt.test_crop_size,opt.test_crop_size,opt.test_crop_size）,源文件所切得块
+        index，块对应的顺序，以便后面将这些块拼接成原图大小
+    '''
+    
+    num=np.array(img_new.shape)/test_crop_size
+    N=num[0]*num[1]*num[2]
+    off=np.array(img_new.shape)-num*test_crop_size
+    off_min=off/2
+    blocks=np.zeros([N]+test_crop_size,dtype=np.float32)
+    indexs=np.zeros([N,3],dtype=np.int32)
+    r=0
+    for i in range(num[0]):
+        for j in range(num[1]):
+            for k in range(num[2]):
+                blocks[r]=img_new[off_min[0]+i*test_crop_size[0]:\
+                    off_min[0]+i*test_crop_size[0]+test_crop_size[0],\
+                    off_min[1]+j*test_crop_size[1]:\
+                    off_min[1]+j*test_crop_size[1]+test_crop_size[1],\
+                    off_min[2]+k*test_crop_size[2]:\
+                    off_min[2]+k*test_crop_size[2]+test_crop_size[2]]
+                indexs[r]=np.array([i,j,k])
+                r+=1
+    return blocks,indexs
+def get_filename(file_list, case):
+    '''
+    DO：从file_list中取出包含文件名case的文件
+    @file_list：文件列表
+    @case：待查询文件
+    Return：file_list中文件名包含case的文件
+    '''
+    for f in file_list:
+        if case in f:
+            return (f)
+def load_ct_info(file_name):
+    '''
+    DO：根据文件路径，取出.mhd文件对应的图像信息，包括图像尺寸，原点坐标以及spacing
+    @file_name：文件路径
+    Return：
+        size：numpy，图像尺寸，顺序为ZYX
+        origin：numpy 原点信息，顺序为ZYX
+        spacing：numpy，体素之间的间隔，顺序为ZYX
+    '''
+    name=file_name.split('/')[-1][:-4]
+    df_info=pd.read_csv('/home/x/dcsb/refactor/del/information.csv')
+    df_min=df_info[df_info.seriesuid==name]
+    df_min=df_min.iloc[0]
+    size=np.array([df_min['sizeZ'],df_min['sizeY'],df_min['sizeX']])
+    origin=np.array([df_min['originZ'],df_min['originY'],df_min['originX']])
+    spacing=np.array([df_min['spacingZ'],df_min['spacingY'],df_min['spacingX']])
+    return size,origin,spacing
+
+def load_ct(file_name):
+    '''
+    DO：根据文件路径，取出.mhd文件对应的图像数组，原点坐标以及spacing
+    @file_name：文件路径
+    Return：
+        img_arr：numpy（D,H,W），原始图像数据
+        origin：numpy 原点信息，顺序为ZYX
+        spacing：numpy，体素之间的间隔，顺序为ZYX
+    '''
+    mhd=sitk.ReadImage(file_name)
+    img_arr=sitk.GetArrayFromImage(mhd)
+    origin = np.array(mhd.GetOrigin())
+    spacing = np.array(mhd.GetSpacing())
+    return img_arr,origin[::-1],spacing[::-1]
+def world_2_voxel(arr,file_name):
+    df_node=pd.read_csv(opt.information_csv)
+    df_min=df_node[df_node['seriesuid']==file_name]
+    index= df_min.index[0]
+    if type(arr)==list:
+        arr=np.array(arr)
+    origin=[df_min.at[index,'originX'],df_min.at[index,'originY'],df_min.at[index,'originZ']]
+    spacing=[df_min.at[index,'spacingX'],df_min.at[index,'spacingY'],df_min.at[index,'spacingZ']]
+    return (arr-origin)/spacing
 def voxel_2_world(arr,file_name):
     '''
+    DO：进行世界坐标和体素坐标的转换，返回世界坐标
     @arr:numpy（N，3）待进行坐标转换的数组，每一行分别为X,Y,Z的体素坐标
     @file_name：string，对应的文件名
     Return：numpy（N，3），体素坐标对应的世界坐标
     '''
-    df_node=pd.read_csv("/home/x/dcsb3/data/TianChi/csv/information.csv")
+    df_node=pd.read_csv(opt.information_csv)
     df_min=df_node[df_node['seriesuid']==file_name]
     index= df_min.index[0]
     if type(arr)==list:
@@ -33,8 +114,13 @@ def voxel_2_world(arr,file_name):
     spacing=[df_min.at[index,'spacingX'],df_min.at[index,'spacingY'],df_min.at[index,'spacingZ']]
     return arr*spacing+origin
 
-def select(file,use):
-    df=pd.read_csv("/home/x/dcsb3/data/TianChi/csv/"+use+"/annotations.csv")
+def select(file):
+    '''
+    Do:给定文件名，返回相应文件的标注信息
+    @file：文件名
+    Return：pandas对象，为该文件所标注的结点信息
+    '''
+    df=pd.read_csv(opt.annotatiion_csv)
     return df[df['seriesuid']==file]
 def rotate(imgs,type):
     '''
@@ -72,10 +158,10 @@ def augument(imgs,mask=None):
     else:
         return rotate(imgs,type),rotate(mask,type)
 def zero_normalize(image, mean=-600.0, var=-300.0):
-        image = (image - mean) / (var)
-        image[image > 1] = 1.
-        image[image < 0] = 0.
-        return image
+    image = (image - mean) / (var)
+    # image[image > 1] = 1.
+    # image[image < 0] = 0.
+    return image
 def normalize(image, MIN_BOUND=-1000.0, MAX_BOUND=400.0):
     '''
     @image：原始数据
@@ -141,12 +227,7 @@ def check_center(size,crop_center,image_shape):
         if margin_max[i]>0:
             crop_center[i]=crop_center[i]-margin_max[i]
     return crop_center
-def load_ct(file_name):
-    mhd=sitk.ReadImage(file_name)
-    img_arr=sitk.GetArrayFromImage(mhd)
-    origin = np.array(mhd.GetOrigin())
-    spacing = np.array(mhd.GetSpacing())
-    return img_arr,origin[::-1],spacing[::-1]
+
 
 def make_mask(file_name):
     '''
@@ -154,11 +235,11 @@ def make_mask(file_name):
     Return：样本的mask
     ！TODO：为训练样本制作二值mask
     '''
-    image,origin,spacing=load_ct(file_name)
+    size,origin,spacing=load_ct_info(file_name)#Z,Y,X
     df_node= pd.read_csv(opt.annotatiion_csv)
     name=file_name.split('/')[-1][:-4]
     df_node = df_node[df_node['seriesuid']==name]
-    image_mask=np.zeros(image.shape,dtype=np.float32)
+    image_mask=np.zeros(size,dtype=np.float32)
     nodule_centers=[]
     for index, nodule in df_node.iterrows():
         if True:
@@ -169,8 +250,8 @@ def make_mask(file_name):
             nodule_centers.append(v_center)
             radius=nodule.diameter_mm/2
             span=np.round(radius/spacing)
-            image_mask[np.clip(int(v_center[0]-span[0]),0,image.shape[0]):np.clip(int(v_center[0]+span[0]+1),0,image.shape[0]),\
-                   np.clip(int(v_center[1]-span[1]),0,image.shape[1]):np.clip(int(v_center[1]+span[1]+1),0,image.shape[1]),\
-                   np.clip(int(v_center[2]-span[2]),0,image.shape[2]):np.clip(int(v_center[2]+span[2]+1),0,image.shape[2])]=int(1)
+            image_mask[np.clip(int(v_center[0]-span[0]),0,size[0]):np.clip(int(v_center[0]+span[0]+1),0,size[0]),\
+                   np.clip(int(v_center[1]-span[1]),0,size[1]):np.clip(int(v_center[1]+span[1]+1),0,size[1]),\
+                   np.clip(int(v_center[2]-span[2]),0,size[2]):np.clip(int(v_center[2]+span[2]+1),0,size[2])]=int(1)
    
-    return image,image_mask,nodule_centers
+    return image_mask,nodule_centers,origin,spacing

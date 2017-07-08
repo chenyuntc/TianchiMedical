@@ -49,3 +49,7 @@ def l2_loss(x, target, weight=None):
         return (o * mask).mean()
 
     return o.mean()
+
+def loss4multi(inputs,target):
+    # i1,i2,i3 = inputs
+    return sum(classifier_loss(ii, target) for ii in inputs)/3.
