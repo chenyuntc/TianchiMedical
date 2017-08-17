@@ -161,7 +161,7 @@ def train_cls(**kwargs):
 
     pre_loss= 100
     lr = opt.lr
-    optimizer = get_optimizer(model,opt.lr,weight_decay=1e-3)
+    optimizer = get_optimizer(model,opt.lr,weight_decay=opt.weight_decay)
     loss_meter = tnt.meter.AverageValueMeter()
 
     confusem = tnt.meter.ConfusionMeter(2)

@@ -183,7 +183,60 @@ class feat_red(nn.Module):
         result=self.model(x)
         
         return self.activa(result)
-               
+class Isomorphism_incept(nn.Module):
+    '''
+    保持大小不变
+    '''
+    def __init__(self,cin,co,relu=True,norm=True):
+        super(Isomorphism_incept,self).__init__()
+        assert(co%4==0)
+        cos=[co/4]*4
+        self.activa=nn.Sequential()
+        if norm:self.activa.add_module('norm',nn.BatchNorm3d(co))
+        if relu:self.activa.add_module('relu',nn.ReLU(True))
+        
+        self.branch1 = nn.Conv3d(cin, cos[0], 1,stride=1)
+        
+        self.branch2= nn.Conv3d(cin,cos[1], (1,1,3),stride=(1,1,1),padding=(0,0,1))
+        self.branch3= nn.Conv3d(cin,cos[2], (3,3,1),stride=(1,1,1),padding=(1,1,0))
+
+        self.branch4= nn.Conv3d(cin,cos[3], (5,5,1),stride=(1,1,1),padding=(2,2,0))
+
+    def forward(self,x):
+        branch1=self.branch1(x)
+        branch2=self.branch2(x)
+        branch3=self.branch3(x)
+        branch4=self.branch4(x)
+        result=torch.cat((branch1,branch2,branch3,branch4),1)
+        return self.activa(result)
+class Isomorphism_incept_1(nn.Module):
+    '''
+    保持大小不变
+    '''
+    def __init__(self,cin,co,relu=True,norm=True):
+        super(Isomorphism_incept_1,self).__init__()
+        assert(co%6==0)
+        cos=[co/6]*6
+        self.activa=nn.Sequential()
+        if norm:self.activa.add_module('norm',nn.BatchNorm3d(co))
+        if relu:self.activa.add_module('relu',nn.ReLU(True))
+        
+        self.branch1 = nn.Conv3d(cin, cos[0], 1,stride=1)        
+        self.branch2 = nn.Conv3d(cin,cos[1], (1,5,5,),stride=(1,1,1),padding=(0,2,2))
+        self.branch3 = nn.Conv3d(cin,cos[2], (1,3,3),stride=(1,1,1),padding=(0,1,1))
+        self.branch4 = nn.Conv3d(cin,cos[3], (5,7,7),stride=(1,1,1),padding=(2,3,3))
+        self.branch5 = nn.Conv3d(cin,cos[4], (3,5,5),stride=(1,1,1),padding=(1,2,2))
+        self.branch6 = nn.Conv3d(cin,cos[5], (7,5,5),stride=(1,1,1),padding=(3,2,2))
+
+    def forward(self,x):
+        branch1=self.branch1(x)
+        branch2=self.branch2(x)
+        branch3=self.branch3(x)
+        branch4=self.branch4(x)
+        branch5=self.branch5(x)
+        branch6=self.branch6(x)
+        result=torch.cat((branch1,branch2,branch3,branch4,branch5,branch6),1)
+        return self.activa(result)
 class spatial_red_block(nn.Module):
     #空间压缩模块，经过此模块后input的大小减半，通道数加倍
     # 分支1：2*2，stride=2的最大池化

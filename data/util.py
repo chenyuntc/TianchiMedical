@@ -19,7 +19,7 @@ def get_topn(arr,n):
         kk=np.where(arr==tmp[-1-i])[0]
         index.append(kk[0])
     return index
-def cropBlocks(img_new,test_crop_size):
+def cropBlocks(img_new,test_crop_size,off_min=np.array([0,0,0])):
     '''
     将img_new切成opt.test_crop_size大小的块
     @img_new：待切块的图像
@@ -28,10 +28,10 @@ def cropBlocks(img_new,test_crop_size):
         index，块对应的顺序，以便后面将这些块拼接成原图大小
     '''
     
-    num=np.array(img_new.shape)/test_crop_size
+    num=(np.array(img_new.shape)-off_min)/test_crop_size
     N=num[0]*num[1]*num[2]
-    off=np.array(img_new.shape)-num*test_crop_size
-    off_min=off/2
+    #off=np.array(img_new.shape)-num*test_crop_size
+    #off_min=off/2
     blocks=np.zeros([N]+test_crop_size,dtype=np.float32)
     indexs=np.zeros([N,3],dtype=np.int32)
     r=0

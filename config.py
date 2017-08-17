@@ -26,7 +26,7 @@ class DefaultConfig:
     
     env = time.strftime(tfmt) # Visdom env
     plot_every = 10 # 每10个batch，更新visdom等
-
+    weight_decay=1e-3
 
     max_epoch=100
     lr = 1e-3 # 学习率
